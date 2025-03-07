@@ -52,6 +52,8 @@ using routeguide::RouteNote;
 using routeguide::RouteSummary;
 using std::chrono::system_clock;
 
+using namespace std::chrono;
+
 float ConvertToRadians(float num) { return num * 3.1415926 / 180; }
 
 // The formula is based on http://mathforum.org/library/drmath/view/51879.html
@@ -149,16 +151,36 @@ class RouteGuideImpl final : public RouteGuide::Service {
 
   Status RouteChat(ServerContext* context,
                    ServerReaderWriter<RouteNote, RouteNote>* stream) override {
+    std::vector<uint64_t> recv_timestamps;
+    std::vector<uint64_t> reply_timestamps;
+
     RouteNote note;
     while (stream->Read(&note)) {
-      std::unique_lock<std::mutex> lock(mu_);
-      for (const RouteNote& n : received_notes_) {
-        if (n.location().latitude() == note.location().latitude() &&
-            n.location().longitude() == note.location().longitude()) {
-          stream->Write(n);
-        }
-      }
-      received_notes_.push_back(note);
+      //std::unique_lock<std::mutex> lock(mu_);
+      auto recv_time = duration_cast<microseconds>(
+                           high_resolution_clock::now().time_since_epoch())
+                           .count();
+      recv_timestamps.push_back(recv_time);
+
+      // Simulate processing delay
+      RouteNote reply_note;
+      reply_note.set_message("Reply to: " + note.message());
+
+      auto reply_time = duration_cast<microseconds>(
+                            high_resolution_clock::now().time_since_epoch())
+                            .count();
+      reply_timestamps.push_back(reply_time);
+
+      stream->Write(reply_note);
+    }
+
+    std::cout << "Server Streaming writing ends." << std::endl;
+
+    for (size_t i = 0; i < recv_timestamps.size(); ++i) {
+      std::cout << "Server Received[" << i << "]: " << recv_timestamps[i]
+                << " us, Server Replied[" << i << "]: "
+                << (i < reply_timestamps.size() ? reply_timestamps[i] : 0)
+                << " us" << std::endl;
     }
 
     return Status::OK;

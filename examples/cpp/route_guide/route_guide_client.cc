@@ -50,6 +50,8 @@ using routeguide::RouteGuide;
 using routeguide::RouteNote;
 using routeguide::RouteSummary;
 
+using namespace std::chrono;
+
 Point MakePoint(long latitude, long longitude) {
   Point p;
   p.set_latitude(latitude);
@@ -160,30 +162,40 @@ class RouteGuideClient {
     std::shared_ptr<ClientReaderWriter<RouteNote, RouteNote> > stream(
         stub_->RouteChat(&context));
 
-    std::thread writer([stream]() {
-      std::vector<RouteNote> notes{MakeRouteNote("First message", 0, 0),
-                                   MakeRouteNote("Second message", 0, 1),
-                                   MakeRouteNote("Third message", 1, 0),
-                                   MakeRouteNote("Fourth message", 0, 0)};
-      for (const RouteNote& note : notes) {
-        std::cout << "Sending message " << note.message() << " at "
-                  << note.location().latitude() << ", "
-                  << note.location().longitude() << std::endl;
-        stream->Write(note);
-      }
-      stream->WritesDone();
-    });
+    std::vector<uint64_t> send_timestamps;
+    std::vector<uint64_t> recv_timestamps;
+
+    const int msgCount = 100;
+    for (int i = 0; i < msgCount; i++) {
+      RouteNote note;
+      std::string strSequence = "Message " + std::to_string(i);
+
+      auto send_time = duration_cast<microseconds>(high_resolution_clock::now().time_since_epoch()).count();
+      send_timestamps.push_back(send_time);
+
+      //stream->Write(note, grpc::WriteOptions().clear_buffer_hint());
+      stream->Write(note);
+    }
+    stream->WritesDone();
+
+    std::cout << "Client Streaming writing ends at " << duration_cast<microseconds>(high_resolution_clock::now().time_since_epoch()).count() << std::endl;
 
     RouteNote server_note;
     while (stream->Read(&server_note)) {
-      std::cout << "Got message " << server_note.message() << " at "
-                << server_note.location().latitude() << ", "
-                << server_note.location().longitude() << std::endl;
+      auto recv_time = duration_cast<microseconds>(high_resolution_clock::now().time_since_epoch()).count();
+      recv_timestamps.push_back(recv_time);
     }
-    writer.join();
+
     Status status = stream->Finish();
     if (!status.ok()) {
       std::cout << "RouteChat rpc failed." << std::endl;
+    }
+
+    for (size_t i = 0; i < send_timestamps.size(); ++i) {
+      std::cout << "Send[" << i << "]: " << send_timestamps[i]
+                << " us, Receive[" << i << "]: "
+                << (i < recv_timestamps.size() ? recv_timestamps[i] : 0)
+                << " us" << std::endl;
     }
   }
 
@@ -220,19 +232,49 @@ int main(int argc, char** argv) {
   absl::ParseCommandLine(argc, argv);
   // Expect only arg: --db_path=path/to/route_guide_db.json.
   std::string db = routeguide::GetDbFileContent(argc, argv);
+
+#if 0
+  int desired_size = 1;
+  grpc::ChannelArguments channel_args;
+  channel_args.SetInt(GRPC_ARG_HTTP2_STREAM_LOOKAHEAD_BYTES, desired_size);
+
+  int write_buf_size = 1;
+  channel_args.SetInt(GRPC_ARG_HTTP2_WRITE_BUFFER_SIZE, write_buf_size);
+
+  grpc_channel_args args = channel_args.c_channel_args();
+  for (size_t i = 0; i < args.num_args; i++) {
+    if (strcmp(args.args[i].key, GRPC_ARG_HTTP2_STREAM_LOOKAHEAD_BYTES) == 0) {
+      desired_size = args.args[i].value.integer;
+      continue;
+    }
+
+    if (strcmp(args.args[i].key, GRPC_ARG_HTTP2_WRITE_BUFFER_SIZE) == 0) {
+      write_buf_size = args.args[i].value.integer;
+      continue;
+    }
+  }
+
+  RouteGuideClient guide(
+      grpc::CreateCustomChannel("localhost:50051", grpc::InsecureChannelCredentials(), channel_args),
+      db);
+#endif
+
   RouteGuideClient guide(
       grpc::CreateChannel("localhost:50051",
                           grpc::InsecureChannelCredentials()),
       db);
 
+#if 0
   std::cout << "-------------- GetFeature --------------" << std::endl;
   guide.GetFeature();
   std::cout << "-------------- ListFeatures --------------" << std::endl;
   guide.ListFeatures();
   std::cout << "-------------- RecordRoute --------------" << std::endl;
   guide.RecordRoute();
+#endif
   std::cout << "-------------- RouteChat --------------" << std::endl;
   guide.RouteChat();
+  std::cout << "-------------- RouteChat Done! --------------" << std::endl;
 
   return 0;
 }
