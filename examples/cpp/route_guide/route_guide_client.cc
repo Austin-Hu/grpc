@@ -52,6 +52,28 @@ using routeguide::RouteSummary;
 
 using namespace std::chrono;
 
+#define PINGPONG_COUNT 50000
+
+class Timer {
+  std::string name_;
+  std::chrono::time_point<std::chrono::high_resolution_clock> start_;
+
+ public:
+  explicit Timer(const std::string& name)
+      : name_(name), start_(std::chrono::high_resolution_clock::now()) {}
+  ~Timer() {
+    auto end = std::chrono::high_resolution_clock::now();
+    auto duration =
+        std::chrono::duration_cast<std::chrono::milliseconds>(end - start_)
+            .count();
+    std::string strOutput =
+        name_ + " took " + std::to_string(duration) + " ms\n";
+
+    std::cout << name_ + " took " + std::to_string(duration) + " ms" << std::endl;
+    //OutputDebugStringA(strOutput.c_str());
+  }
+};
+
 Point MakePoint(long latitude, long longitude) {
   Point p;
   p.set_latitude(latitude);
@@ -162,28 +184,33 @@ class RouteGuideClient {
     std::shared_ptr<ClientReaderWriter<RouteNote, RouteNote> > stream(
         stub_->RouteChat(&context));
 
+#if 0
     std::vector<uint64_t> send_timestamps;
     std::vector<uint64_t> recv_timestamps;
+#endif
 
-    const int msgCount = 100;
-    for (int i = 0; i < msgCount; i++) {
+    Timer timer(__func__);
+
+    for (int i = 0; i < PINGPONG_COUNT; i++) {
       RouteNote note;
       std::string strSequence = "Message " + std::to_string(i);
 
+#if 0
       auto send_time = duration_cast<microseconds>(high_resolution_clock::now().time_since_epoch()).count();
       send_timestamps.push_back(send_time);
+#endif
 
       //stream->Write(note, grpc::WriteOptions().clear_buffer_hint());
       stream->Write(note);
     }
     stream->WritesDone();
 
-    std::cout << "Client Streaming writing ends at " << duration_cast<microseconds>(high_resolution_clock::now().time_since_epoch()).count() << std::endl;
+    //std::cout << "Client Streaming writing ends at " << duration_cast<microseconds>(high_resolution_clock::now().time_since_epoch()).count() << std::endl;
 
     RouteNote server_note;
     while (stream->Read(&server_note)) {
-      auto recv_time = duration_cast<microseconds>(high_resolution_clock::now().time_since_epoch()).count();
-      recv_timestamps.push_back(recv_time);
+      //auto recv_time = duration_cast<microseconds>(high_resolution_clock::now().time_since_epoch()).count();
+      //recv_timestamps.push_back(recv_time);
     }
 
     Status status = stream->Finish();
@@ -191,12 +218,14 @@ class RouteGuideClient {
       std::cout << "RouteChat rpc failed." << std::endl;
     }
 
+#if 0
     for (size_t i = 0; i < send_timestamps.size(); ++i) {
       std::cout << "Send[" << i << "]: " << send_timestamps[i]
                 << " us, Receive[" << i << "]: "
                 << (i < recv_timestamps.size() ? recv_timestamps[i] : 0)
                 << " us" << std::endl;
     }
+#endif
   }
 
  private:

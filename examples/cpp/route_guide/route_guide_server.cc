@@ -151,29 +151,36 @@ class RouteGuideImpl final : public RouteGuide::Service {
 
   Status RouteChat(ServerContext* context,
                    ServerReaderWriter<RouteNote, RouteNote>* stream) override {
+#if 0
     std::vector<uint64_t> recv_timestamps;
     std::vector<uint64_t> reply_timestamps;
+#endif
 
     RouteNote note;
     while (stream->Read(&note)) {
       //std::unique_lock<std::mutex> lock(mu_);
+#if 0
       auto recv_time = duration_cast<microseconds>(
                            high_resolution_clock::now().time_since_epoch())
                            .count();
       recv_timestamps.push_back(recv_time);
+#endif
 
       // Simulate processing delay
       RouteNote reply_note;
       reply_note.set_message("Reply to: " + note.message());
 
+#if 0
       auto reply_time = duration_cast<microseconds>(
                             high_resolution_clock::now().time_since_epoch())
                             .count();
       reply_timestamps.push_back(reply_time);
+#endif
 
       stream->Write(reply_note);
     }
 
+#if 0
     std::cout << "Server Streaming writing ends." << std::endl;
 
     for (size_t i = 0; i < recv_timestamps.size(); ++i) {
@@ -182,6 +189,7 @@ class RouteGuideImpl final : public RouteGuide::Service {
                 << (i < reply_timestamps.size() ? reply_timestamps[i] : 0)
                 << " us" << std::endl;
     }
+#endif
 
     return Status::OK;
   }
