@@ -52,7 +52,7 @@ using routeguide::RouteSummary;
 
 using namespace std::chrono;
 
-#define PINGPONG_COUNT 50000
+#define PINGPONG_COUNT 500000
 
 class Timer {
   std::string name_;
@@ -107,9 +107,16 @@ class RouteGuideClient {
     Point point;
     Feature feature;
     point = MakePoint(409146138, -746188906);
-    GetOneFeature(point, &feature);
+
+    Timer timer(__func__);
+
+    for (int i = 0; i < PINGPONG_COUNT; i++) {
+      GetOneFeature(point, &feature);
+    }
+#if 0
     point = MakePoint(0, 0);
     GetOneFeature(point, &feature);
+#endif
   }
 
   void ListFeatures() {
@@ -236,6 +243,7 @@ class RouteGuideClient {
       std::cout << "GetFeature rpc failed." << std::endl;
       return false;
     }
+#if 0
     if (!feature->has_location()) {
       std::cout << "Server returns incomplete feature." << std::endl;
       return false;
@@ -244,11 +252,13 @@ class RouteGuideClient {
       std::cout << "Found no feature at "
                 << feature->location().latitude() / kCoordFactor_ << ", "
                 << feature->location().longitude() / kCoordFactor_ << std::endl;
-    } else {
+    }
+    else {
       std::cout << "Found feature called " << feature->name() << " at "
                 << feature->location().latitude() / kCoordFactor_ << ", "
                 << feature->location().longitude() / kCoordFactor_ << std::endl;
     }
+#endif
     return true;
   }
 
@@ -293,15 +303,17 @@ int main(int argc, char** argv) {
                           grpc::InsecureChannelCredentials()),
       db);
 
-#if 0
-  std::cout << "-------------- GetFeature --------------" << std::endl;
+  std::cout << "-------------- GetFeature (Unary Sync Mode) --------------" << std::endl;
   guide.GetFeature();
+  std::cout << "-------------- GetFeature Done! --------------" << std::endl;
+
+#if 0
   std::cout << "-------------- ListFeatures --------------" << std::endl;
   guide.ListFeatures();
   std::cout << "-------------- RecordRoute --------------" << std::endl;
   guide.RecordRoute();
 #endif
-  std::cout << "-------------- RouteChat --------------" << std::endl;
+  std::cout << "-------------- RouteChat (Streaming Mode) --------------" << std::endl;
   guide.RouteChat();
   std::cout << "-------------- RouteChat Done! --------------" << std::endl;
 

@@ -95,8 +95,10 @@ class RouteGuideImpl final : public RouteGuide::Service {
 
   Status GetFeature(ServerContext* context, const Point* point,
                     Feature* feature) override {
+#if 0
     feature->set_name(GetFeatureName(*point, feature_list_));
     feature->mutable_location()->CopyFrom(*point);
+#endif
     return Status::OK;
   }
 
