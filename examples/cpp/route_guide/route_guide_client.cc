@@ -37,6 +37,8 @@
 #include "route_guide.grpc.pb.h"
 #endif
 
+#include <google/protobuf/empty.pb.h>
+
 using grpc::Channel;
 using grpc::ClientContext;
 using grpc::ClientReader;
@@ -49,6 +51,7 @@ using routeguide::Rectangle;
 using routeguide::RouteGuide;
 using routeguide::RouteNote;
 using routeguide::RouteSummary;
+using google::protobuf::Empty;
 
 using namespace std::chrono;
 
@@ -188,8 +191,9 @@ class RouteGuideClient {
   void RouteChat() {
     ClientContext context;
 
-    std::shared_ptr<ClientReaderWriter<RouteNote, RouteNote> > stream(
-        stub_->RouteChat(&context));
+    Empty response;
+    std::shared_ptr<ClientWriter<RouteNote> > writer(
+        stub_->RouteChat(&context, &response));
 
 #if 0
     std::vector<uint64_t> send_timestamps;
@@ -208,19 +212,21 @@ class RouteGuideClient {
 #endif
 
       //stream->Write(note, grpc::WriteOptions().clear_buffer_hint());
-      stream->Write(note);
+      writer->Write(note);
     }
-    stream->WritesDone();
+    writer->WritesDone();
 
     //std::cout << "Client Streaming writing ends at " << duration_cast<microseconds>(high_resolution_clock::now().time_since_epoch()).count() << std::endl;
 
+#if 0
     RouteNote server_note;
     while (stream->Read(&server_note)) {
       //auto recv_time = duration_cast<microseconds>(high_resolution_clock::now().time_since_epoch()).count();
       //recv_timestamps.push_back(recv_time);
     }
+#endif
 
-    Status status = stream->Finish();
+    Status status = writer->Finish();
     if (!status.ok()) {
       std::cout << "RouteChat rpc failed." << std::endl;
     }

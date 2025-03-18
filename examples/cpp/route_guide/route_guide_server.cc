@@ -37,6 +37,8 @@
 #include "route_guide.grpc.pb.h"
 #endif
 
+#include <google/protobuf/empty.pb.h>
+
 using grpc::Server;
 using grpc::ServerBuilder;
 using grpc::ServerContext;
@@ -51,6 +53,7 @@ using routeguide::RouteGuide;
 using routeguide::RouteNote;
 using routeguide::RouteSummary;
 using std::chrono::system_clock;
+using google::protobuf::Empty;
 
 using namespace std::chrono;
 
@@ -151,15 +154,15 @@ class RouteGuideImpl final : public RouteGuide::Service {
     return Status::OK;
   }
 
-  Status RouteChat(ServerContext* context,
-                   ServerReaderWriter<RouteNote, RouteNote>* stream) override {
+  Status RouteChat(ServerContext* context, ServerReader<RouteNote>* reader,
+                   Empty* response) override {
 #if 0
     std::vector<uint64_t> recv_timestamps;
     std::vector<uint64_t> reply_timestamps;
 #endif
 
     RouteNote note;
-    while (stream->Read(&note)) {
+    while (reader->Read(&note)) {
       //std::unique_lock<std::mutex> lock(mu_);
 #if 0
       auto recv_time = duration_cast<microseconds>(
@@ -168,6 +171,7 @@ class RouteGuideImpl final : public RouteGuide::Service {
       recv_timestamps.push_back(recv_time);
 #endif
 
+#if 0
       // Simulate processing delay
       RouteNote reply_note;
       reply_note.set_message("Reply to: " + note.message());
@@ -180,6 +184,7 @@ class RouteGuideImpl final : public RouteGuide::Service {
 #endif
 
       stream->Write(reply_note);
+#endif
     }
 
 #if 0
